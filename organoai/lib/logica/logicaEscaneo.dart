@@ -7,18 +7,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:organoai/logica/logicaFoto.dart';
 
+// Servicio que maneja la comunicación con Firestore para guardar y obtener escaneos
 class ScanService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ...existing code...
+  // Guarda un escaneo con sus datos y ubicación en Firestore para el usuario autenticado
   Future<void> guardarEscaneo({
     required String tipoEnfermedad,
     required String descripcion,
     required String tratamiento,
     required DateTime fechaEscaneo,
     required String urlImagen,
-    double? latitud, // <-- Agrega estos parámetros opcionales
+    double? latitud,
     double? longitud,
   }) async {
     try {
@@ -36,16 +37,16 @@ class ScanService {
         'tratamiento': tratamiento,
         'fechaEscaneo': Timestamp.fromDate(fechaEscaneo),
         'urlImagen': urlImagen,
-        'latitud': latitud, // <-- Guarda latitud
-        'longitud': longitud, // <-- Guarda longitud
+        'latitud': latitud,
+        'longitud': longitud,
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       throw Exception('Error al guardar el escaneo: ${e.toString()}');
     }
   }
-// ...existing code...
 
+  // Obtiene los escaneos del usuario ordenados por fecha descendente
   Future<List<Map<String, dynamic>>> obtenerEscaneos() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -67,10 +68,13 @@ class ScanService {
 
 class LogicaEscaneo {
   final ScanService _scanService = ScanService();
+
+  // Llave API para servicio de hosting de imágenes
   static const String _apiKey = "a2cf28f997aaa0388316413335a4a969";
   static const String _uploadUrl =
       "https://api.imgbb.com/1/upload?key=$_apiKey";
 
+  // Sube la imagen codificada en base64 a ImgBB y retorna la URL pública
   Future<String> _uploadImageToImgbb(Map<String, dynamic> apiResponse) async {
     try {
       final String? imagenBase64 = apiResponse['imagen'];
@@ -87,8 +91,7 @@ class LogicaEscaneo {
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         if (jsonResponse['success'] == true) {
-          final imageUrl = jsonResponse['data']['url'];
-          return imageUrl;
+          return jsonResponse['data']['url'];
         } else {
           throw Exception(
               "Error al subir la imagen: ${jsonResponse['error']['message']}");
@@ -101,18 +104,17 @@ class LogicaEscaneo {
     }
   }
 
+  // Decodifica la imagen base64 que viene en la respuesta del API
   Uint8List? obtenerImagenDesdeApi(Map<String, dynamic> apiResponse) {
     final String? imagenBase64 = apiResponse['imagen'];
-
     if (imagenBase64 == null) return null;
     final String base64String = imagenBase64.split(',').last;
     return base64Decode(base64String);
   }
 
+  // Convierte la lista de enfermedades recibidas en un texto legible
   String formatearEnfermedades(Map<String, dynamic> apiResponse) {
     final enfermedades = apiResponse['enfermedades'];
-    print('API RESPONSE COMPLETO: $apiResponse');
-    print('ENFERMEDADES LISTA: $enfermedades');
     if (enfermedades == null || enfermedades.isEmpty) {
       return 'No hay enfermedades detectadas.';
     }
@@ -120,12 +122,13 @@ class LogicaEscaneo {
         enfermedades.map<String>((e) => '  $e').join('\n');
   }
 
+  // Guarda un escaneo con detalles y muestra un diálogo con el resultado
   Future<void> guardarEscaneo(
     BuildContext context,
     List<File> images,
     Map<String, dynamic> apiResponse, {
-    double? latitud, // <-- Nuevo parámetro opcional
-    double? longitud, // <-- Nuevo parámetro opcional
+    double? latitud,
+    double? longitud,
   }) async {
     if (images.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,16 +141,14 @@ class LogicaEscaneo {
       final DateTime now = DateTime.now();
       final File image = images.first;
 
+      // Sube la imagen y obtiene la URL pública
       final String downloadUrl = await _uploadImageToImgbb(apiResponse);
 
       final List<dynamic> enfermedades = apiResponse['enfermedades'] ?? [];
-      print('API RESPONSE COMPLETO: $apiResponse');
-      print('ENFERMEDADES LISTA: $enfermedades');
       String tipo = 'desconocida';
 
-      // Extraer el nombre de la enfermedad
+      // Extrae el nombre de la enfermedad de la lista, tomando la primera válida
       for (final item in enfermedades) {
-        print('Procesando item: $item');
         if (item.toString().contains(':')) {
           final partes = item.toString().split(':');
           if (partes.length > 1) {
@@ -158,17 +159,16 @@ class LogicaEscaneo {
             }
           }
         } else {
-          // Si no hay ":", puede ser un mensaje como "No se detecta oregano"
           tipo = item.toString().trim();
           break;
         }
       }
-      print('TIPO EXTRAÍDO: $tipo');
 
+      // Valores por defecto en caso no se encuentre info en Firestore
       String descripcion = "No disponible";
       String tratamiento = "No disponible";
 
-      // Buscar por coincidencia exacta en Firestore solo si no es sano o desconocido
+      // Consulta Firestore para obtener descripción y tratamiento si es enfermedad conocida
       if (tipo.toLowerCase() != 'no se detecta oregano' &&
           tipo.toLowerCase() != 'desconocida') {
         final querySnapshot = await FirebaseFirestore.instance
@@ -187,7 +187,7 @@ class LogicaEscaneo {
         tratamiento = "No aplica.";
       }
 
-      // Mostrar en pantalla
+      // Muestra un diálogo con el resultado del escaneo
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -213,14 +213,15 @@ class LogicaEscaneo {
         ),
       );
 
+      // Guarda el escaneo en Firestore
       await _scanService.guardarEscaneo(
         tipoEnfermedad: tipo,
         descripcion: descripcion,
         tratamiento: tratamiento,
         fechaEscaneo: now,
         urlImagen: downloadUrl,
-        latitud: latitud, // <-- Pasa la latitud
-        longitud: longitud, // <-- Pasa la longitud
+        latitud: latitud,
+        longitud: longitud,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -233,6 +234,7 @@ class LogicaEscaneo {
     }
   }
 
+  // Construye la interfaz para mostrar resultados de escaneo
   Widget buildScanResults(
       List<Map<String, dynamic>> resultados, BuildContext context) {
     if (resultados.isEmpty) {
@@ -276,7 +278,7 @@ class LogicaEscaneo {
             );
           }
 
-          // Usa _buildImageWidgets para mostrar la imagen correcta
+          // Construye widget para mostrar imagen y resultado
           final imagenesWidget = _buildImageWidgets([image], response);
 
           final mensaje = formatearEnfermedades(response);
@@ -315,8 +317,8 @@ class LogicaEscaneo {
                             context,
                             [image],
                             response,
-                            latitud: imagenConUbicacion?.latitud,   // <-- Pasa la latitud aquí
-                            longitud: imagenConUbicacion?.longitud, // <-- Pasa la longitud aquí
+                            latitud: imagenConUbicacion?.latitud,
+                            longitud: imagenConUbicacion?.longitud,
                           );
                         },
                       ),
@@ -330,13 +332,11 @@ class LogicaEscaneo {
     );
   }
 
+  // Construye widgets para mostrar la imagen: desde API o local
   List<Widget> _buildImageWidgets(
       List<File> images, Map<String, dynamic> apiResponse) {
     if (apiResponse['imagen'] != null) {
       final imgBytes = obtenerImagenDesdeApi(apiResponse);
-      print('API RESPONSE COMPLETO: $apiResponse');
-      print('Bytes de imagen: $imgBytes');
-
       if (imgBytes != null) {
         return [
           Padding(
@@ -352,6 +352,7 @@ class LogicaEscaneo {
       }
     }
 
+    // Si no hay imagen en API, muestra imagen local si existe
     return images
         .where((image) => image.existsSync())
         .map((image) => Padding(
