@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart'; // 👈 Importante
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 import 'package:organoai/vista/login.dart';
-import 'package:organoai/logica/logicaFoto.dart'; // 👈 Tu ViewModel
+import 'package:organoai/logica/logicaFoto.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,9 +22,8 @@ class MainApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(
-            create: (_) =>
-                LogicaFoto()), // 👈 Aquí está tu ViewModel registrado
-        // Puedes añadir más ViewModels si lo necesitas
+            create: (_) => LogicaFoto()), // Aquí está ViewModel registrado
+        // Se puede añadir más ViewModels si lo necesitas
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -32,7 +31,7 @@ class MainApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.green,
         ),
-        home: const LoginPage(), // 👈 Tu pantalla inicial
+        home: const LoginPage(), // pantalla inicial
       ),
     );
   }
