@@ -1,0 +1,35 @@
+name: organoai
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.0
+  firebase_core: ^3.12.1
+  image_picker: ^1.1.2
+
+  cloud_firestore: ^5.6.6
+  firebase_auth: ^5.5.2
+  flutterfire_cli: ^1.1.0
+  flutter_local_notifications: ^19.0.0
+  permission_handler: ^12.0.0+1
+  http: ^1.4.0
+  geolocator: ^14.0.1
+  url_launcher: ^6.3.1
+  
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  mockito: ^5.4.6
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.2
+flutter:
+  uses-material-design: true

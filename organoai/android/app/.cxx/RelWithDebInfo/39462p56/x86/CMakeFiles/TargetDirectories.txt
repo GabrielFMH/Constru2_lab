@@ -1,0 +1,2 @@
+F:/OreganoAI/proyecto-final-oreganoai/organoai/android/app/.cxx/RelWithDebInfo/39462p56/x86/CMakeFiles/edit_cache.dir
+F:/OreganoAI/proyecto-final-oreganoai/organoai/android/app/.cxx/RelWithDebInfo/39462p56/x86/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "552031247451",
+    "project_id": "oreganoai-e7f49",
+    "storage_bucket": "oreganoai-e7f49.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:552031247451:android:a42e99ed7c3210cc00737e",
+        "android_client_info": {
+          "package_name": "com.example.organoai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQKMzBDwYCle1ekAGjJHBMc92usX6Yu2A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

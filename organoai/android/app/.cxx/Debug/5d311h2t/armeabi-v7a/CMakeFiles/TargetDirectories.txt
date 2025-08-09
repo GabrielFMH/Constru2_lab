@@ -1,0 +1,2 @@
+C:/Users/HP/Documents/GitHub/proyecto-final-oreganoai/organoai/android/app/.cxx/Debug/5d311h2t/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/HP/Documents/GitHub/proyecto-final-oreganoai/organoai/android/app/.cxx/Debug/5d311h2t/armeabi-v7a/CMakeFiles/rebuild_cache.dir
