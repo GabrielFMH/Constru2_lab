@@ -7,26 +7,38 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:organoai/logica/logicaFoto.dart';
 
-// Servicio que maneja la comunicación con Firestore para guardar y obtener escaneos
+/// Servicio encargado de gestionar el almacenamiento y recuperación de escaneos realizados por el usuario.
+/// Se comunica con Firebase Firestore para guardar los resultados del análisis y obtenerlos posteriormente.
 class ScanService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Guarda un escaneo con sus datos y ubicación en Firestore para el usuario autenticado
+  /// Guarda un nuevo escaneo en la base de datos de Firestore.
+  /// 
+  /// [tipoEnfermedad]: Nombre de la enfermedad detectada (por ejemplo, "Mildiú").
+  /// [descripcion]: Descripción de la enfermedad obtenida desde la base de datos.
+  /// [tratamiento]: Recomendaciones de tratamiento para la enfermedad.
+  /// [fechaEscaneo]: Fecha y hora en que se realizó el escaneo.
+  /// [urlImagen]: URL pública de la imagen subida a ImgBB.
+  /// [latitud] y [longitud]: Coordenadas geográficas opcionales donde se tomó la foto (para rastreo).
+  /// 
+  /// Este método verifica primero si el usuario está autenticado. Si no lo está, lanza una excepción.
+  /// Luego guarda los datos en la colección `escaneos` del usuario actual.
   Future<void> guardarEscaneo({
     required String tipoEnfermedad,
     required String descripcion,
     required String tratamiento,
     required DateTime fechaEscaneo,
     required String urlImagen,
-    double? latitud,
-    double? longitud,
+    double? latitud, // Opcional: latitud del lugar del escaneo
+    double? longitud, // Opcional: longitud del lugar del escaneo
   }) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
         throw Exception('Usuario no autenticado');
       }
+
       await _firestore
           .collection('users')
           .doc(user.uid)
@@ -37,16 +49,20 @@ class ScanService {
         'tratamiento': tratamiento,
         'fechaEscaneo': Timestamp.fromDate(fechaEscaneo),
         'urlImagen': urlImagen,
-        'latitud': latitud,
+        'latitud': latitud, // Guarda coordenadas si están disponibles
         'longitud': longitud,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(), // Marca de tiempo del servidor
       });
     } catch (e) {
       throw Exception('Error al guardar el escaneo: ${e.toString()}');
     }
   }
 
-  // Obtiene los escaneos del usuario ordenados por fecha descendente
+  /// Obtiene todos los escaneos del usuario actual, ordenados por fecha descendente (más recientes primero).
+  /// 
+  /// Devuelve una lista de mapas (`Map<String, dynamic>`) con los datos de cada escaneo.
+  /// Si el usuario no está autenticado, lanza una excepción.
+  /// En caso de error en la consulta a Firestore, también se lanza una excepción.
   Future<List<Map<String, dynamic>>> obtenerEscaneos() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -57,8 +73,9 @@ class ScanService {
           .collection('users')
           .doc(user.uid)
           .collection('escaneos')
-          .orderBy('fechaEscaneo', descending: true)
+          .orderBy('fechaEscaneo', descending: true) // Ordena por fecha más reciente
           .get();
+
       return snapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
       throw Exception('Error al obtener los escaneos: ${e.toString()}');
@@ -66,21 +83,29 @@ class ScanService {
   }
 }
 
+/// Clase principal que gestiona todo el proceso de escaneo: desde la captura de imagen hasta el guardado del resultado.
+/// Utiliza una API externa (ImgBB) para subir imágenes y una IA para analizar enfermedades.
 class LogicaEscaneo {
   final ScanService _scanService = ScanService();
-
-  // Llave API para servicio de hosting de imágenes
   static const String _apiKey = "a2cf28f997aaa0388316413335a4a969";
   static const String _uploadUrl =
       "https://api.imgbb.com/1/upload?key=$_apiKey";
 
-  // Sube la imagen codificada en base64 a ImgBB y retorna la URL pública
+  /// Sube una imagen codificada en Base64 a ImgBB y devuelve la URL pública de la imagen.
+  /// 
+  /// [apiResponse]: Respuesta de la API que contiene la imagen en formato Base64 (como 'data:image/jpeg;base64,...').
+  /// 
+  /// Extrae solo el contenido Base64 (sin el prefijo MIME), hace la solicitud HTTP POST a ImgBB,
+  /// y si la respuesta es exitosa, extrae la URL de la imagen subida.
+  /// Si falla, lanza una excepción con un mensaje descriptivo.
   Future<String> _uploadImageToImgbb(Map<String, dynamic> apiResponse) async {
     try {
       final String? imagenBase64 = apiResponse['imagen'];
       if (imagenBase64 == null) {
         throw Exception("No se encontró la imagen en la respuesta de la API.");
       }
+
+      // Elimina el prefijo MIME (ej: "data:image/jpeg;base64,") para quedarnos solo con los datos
       final String base64String = imagenBase64.split(',').last;
 
       final response = await http.post(
@@ -91,7 +116,8 @@ class LogicaEscaneo {
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         if (jsonResponse['success'] == true) {
-          return jsonResponse['data']['url'];
+          final imageUrl = jsonResponse['data']['url'];
+          return imageUrl;
         } else {
           throw Exception(
               "Error al subir la imagen: ${jsonResponse['error']['message']}");
@@ -104,25 +130,54 @@ class LogicaEscaneo {
     }
   }
 
-  // Decodifica la imagen base64 que viene en la respuesta del API
+  /// Convierte la imagen codificada en Base64 (extraída de la respuesta de la API) a un objeto Uint8List (bytes).
+  /// 
+  /// [apiResponse]: Respuesta de la API que contiene la imagen como cadena Base64.
+  /// 
+  /// Devuelve `null` si no hay imagen o si el Base64 no es válido. Útil para mostrar la imagen localmente sin necesidad de subirla.
   Uint8List? obtenerImagenDesdeApi(Map<String, dynamic> apiResponse) {
     final String? imagenBase64 = apiResponse['imagen'];
+
     if (imagenBase64 == null) return null;
     final String base64String = imagenBase64.split(',').last;
     return base64Decode(base64String);
   }
 
-  // Convierte la lista de enfermedades recibidas en un texto legible
+  /// Formatea la lista de enfermedades detectadas en un texto legible para el usuario.
+  /// 
+  /// [apiResponse]: Respuesta de la API con el campo 'enfermedades' (lista de strings).
+  /// 
+  /// Si no hay enfermedades, muestra un mensaje indicando falta de conexión.
+  /// De lo contrario, devuelve un string con cada enfermedad enumerada.
+  /// También imprime información de depuración en consola.
   String formatearEnfermedades(Map<String, dynamic> apiResponse) {
     final enfermedades = apiResponse['enfermedades'];
+    print('API RESPONSE COMPLETO: $apiResponse');
+    print('ENFERMEDADES LISTA: $enfermedades');
+
     if (enfermedades == null || enfermedades.isEmpty) {
-      return 'No hay enfermedades detectadas.';
+      return 'Sin conexion al servidor API (revise su conexion a internet).';
     }
+
     return 'Enfermedades:\n' +
         enfermedades.map<String>((e) => '  $e').join('\n');
   }
 
-  // Guarda un escaneo con detalles y muestra un diálogo con el resultado
+  /// Procesa el escaneo completo: sube la imagen, analiza las enfermedades, muestra resultados y guarda en Firestore.
+  /// 
+  /// [context]: Contexto de la pantalla para mostrar mensajes y diálogos.
+  /// [images]: Lista de archivos de imagen seleccionados (normalmente uno).
+  /// [apiResponse]: Respuesta de la API de análisis (con imagen, enfermedades, etc.).
+  /// [latitud] y [longitud]: Opcionalmente, coordenadas GPS del lugar donde se tomó la foto.
+  /// 
+  /// Este método:
+  /// 1. Verifica que haya imágenes.
+  /// 2. Sube la imagen a ImgBB.
+  /// 3. Extrae el tipo de enfermedad (si existe).
+  /// 4. Busca descripción y tratamiento en Firestore si la enfermedad es conocida.
+  /// 5. Muestra un diálogo con los resultados.
+  /// 6. Guarda el escaneo en Firestore.
+  /// 7. Notifica al usuario si todo salió bien o hubo errores.
   Future<void> guardarEscaneo(
     BuildContext context,
     List<File> images,
@@ -141,14 +196,19 @@ class LogicaEscaneo {
       final DateTime now = DateTime.now();
       final File image = images.first;
 
-      // Sube la imagen y obtiene la URL pública
+      // Sube la imagen a ImgBB y obtiene su URL pública
       final String downloadUrl = await _uploadImageToImgbb(apiResponse);
 
+      // Extrae la lista de enfermedades detectadas
       final List<dynamic> enfermedades = apiResponse['enfermedades'] ?? [];
+      print('API RESPONSE COMPLETO: $apiResponse');
+      print('ENFERMEDADES LISTA: $enfermedades');
+
       String tipo = 'desconocida';
 
-      // Extrae el nombre de la enfermedad de la lista, tomando la primera válida
+      // Intenta extraer el nombre real de la enfermedad del texto
       for (final item in enfermedades) {
+        print('Procesando item: $item');
         if (item.toString().contains(':')) {
           final partes = item.toString().split(':');
           if (partes.length > 1) {
@@ -159,16 +219,18 @@ class LogicaEscaneo {
             }
           }
         } else {
+          // Caso especial: mensaje como "No se detecta oregano"
           tipo = item.toString().trim();
           break;
         }
       }
+      print('TIPO EXTRAÍDO: $tipo');
 
-      // Valores por defecto en caso no se encuentre info en Firestore
+      // Define descripción y tratamiento por defecto
       String descripcion = "No disponible";
       String tratamiento = "No disponible";
 
-      // Consulta Firestore para obtener descripción y tratamiento si es enfermedad conocida
+      // Busca información adicional en Firestore si la enfermedad no es "sana" ni "desconocida"
       if (tipo.toLowerCase() != 'no se detecta oregano' &&
           tipo.toLowerCase() != 'desconocida') {
         final querySnapshot = await FirebaseFirestore.instance
@@ -187,7 +249,7 @@ class LogicaEscaneo {
         tratamiento = "No aplica.";
       }
 
-      // Muestra un diálogo con el resultado del escaneo
+      // Muestra el resultado al usuario en un cuadro de diálogo
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -213,7 +275,7 @@ class LogicaEscaneo {
         ),
       );
 
-      // Guarda el escaneo en Firestore
+      // Guarda el escaneo en Firestore con todas las variables relevantes
       await _scanService.guardarEscaneo(
         tipoEnfermedad: tipo,
         descripcion: descripcion,
@@ -224,17 +286,28 @@ class LogicaEscaneo {
         longitud: longitud,
       );
 
+      // Notificación de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Escaneo guardado exitosamente.")),
       );
     } catch (e) {
+      // En caso de error, muestra un mensaje al usuario
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error al guardar escaneo: ${e.toString()}")),
       );
     }
   }
 
-  // Construye la interfaz para mostrar resultados de escaneo
+  /// Construye la interfaz visual para mostrar múltiples resultados de escaneo.
+  /// 
+  /// [resultados]: Lista de mapas con datos de escaneos previos (debe incluir imagen y respuesta).
+  /// [context]: Contexto de la pantalla para construir widgets.
+  /// 
+  /// Si no hay resultados, muestra un mensaje vacío.
+  /// De lo contrario, crea una lista de tarjetas (Card) con:
+  /// - Imagen del escaneo.
+  /// - Resultado textual (enfermedades detectadas).
+  /// - Botón "Guardar" para guardar el escaneo si no es "sin oregano".
   Widget buildScanResults(
       List<Map<String, dynamic>> resultados, BuildContext context) {
     if (resultados.isEmpty) {
@@ -260,6 +333,7 @@ class LogicaEscaneo {
         itemBuilder: (context, index) {
           final item = resultados[index];
 
+          // Validación básica de datos
           if (!item.containsKey('image') || !item.containsKey('response')) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -278,9 +352,10 @@ class LogicaEscaneo {
             );
           }
 
-          // Construye widget para mostrar imagen y resultado
+          // Muestra la imagen usando el método auxiliar
           final imagenesWidget = _buildImageWidgets([image], response);
 
+          // Formatea el mensaje de enfermedades
           final mensaje = formatearEnfermedades(response);
           final esSinOregano = mensaje
                   .toLowerCase()
@@ -332,11 +407,21 @@ class LogicaEscaneo {
     );
   }
 
-  // Construye widgets para mostrar la imagen: desde API o local
+  /// Crea widgets de imagen (File o Uint8List) para mostrar en la interfaz.
+  /// 
+  /// [images]: Lista de archivos de imagen locales.
+  /// [apiResponse]: Respuesta de la API que puede contener una imagen en Base64.
+  /// 
+  /// Primero intenta mostrar la imagen desde la respuesta de la API (si está presente).
+  /// Si no, muestra las imágenes locales (de archivo).
+  /// En ambos casos, maneja errores de carga con un texto alternativo.
   List<Widget> _buildImageWidgets(
       List<File> images, Map<String, dynamic> apiResponse) {
     if (apiResponse['imagen'] != null) {
       final imgBytes = obtenerImagenDesdeApi(apiResponse);
+      print('API RESPONSE COMPLETO: $apiResponse');
+      print('Bytes de imagen: $imgBytes');
+
       if (imgBytes != null) {
         return [
           Padding(
@@ -352,7 +437,7 @@ class LogicaEscaneo {
       }
     }
 
-    // Si no hay imagen en API, muestra imagen local si existe
+    // Si no hay imagen en la API, usa las imágenes locales
     return images
         .where((image) => image.existsSync())
         .map((image) => Padding(

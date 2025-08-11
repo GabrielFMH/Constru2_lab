@@ -58,7 +58,7 @@ class DetalleEscaneoPage extends StatelessWidget {
             const SizedBox(height: 24),
             _buildSection("Latitud:", escaneo.latitud?.toString() ?? 'N/A'),
             const SizedBox(height: 24),
-            _buildSection("Latitud:", escaneo.longitud?.toString() ?? 'N/A'),
+            _buildSection("Longitud:", escaneo.longitud?.toString() ?? 'N/A'),
             const SizedBox(height: 24),
             Center(
               child: ElevatedButton.icon(
