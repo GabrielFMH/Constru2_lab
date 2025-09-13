@@ -84,7 +84,7 @@ class HistorialPage extends StatelessWidget {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Builder<
+                      child: StreamBuilder<
                           Map<String, List<Map<String, dynamic>>>>(
                         stream: viewModel.listarEscaneos(),
                         builder: (context, snapshot) {

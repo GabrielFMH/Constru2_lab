@@ -29,7 +29,7 @@ class HistorialViewModel extends ChangeNotifier {
   }
 
   // Devuelve un stream agrupado y filtrado listo para la vista
-  Stream<Map<String, List<Map<String, dynamic>>>> escaneosAgrupadosStream() {
+  Stream<Map<String, List<Map<String, dynamic>>>> listarEscaneos() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return const Stream.empty();
