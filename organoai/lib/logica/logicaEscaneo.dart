@@ -276,7 +276,7 @@ class LogicaEscaneo {
             .where('nombre', isEqualTo: tipo)
             .limit(1)
             .get();
-
+        //Crear la funcion get theratments
         if (querySnapshot.docs.isNotEmpty) {
           final data = querySnapshot.docs.first.data();
           descripcion = data['descripcion'] ?? descripcion;
