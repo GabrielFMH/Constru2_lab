@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import '../datos/conexionApi.dart';
 import '../logica/logicaEscaneo.dart';
 import '../logica/logicaNotificaciones.dart';
@@ -27,6 +28,19 @@ class LogicaFoto with ChangeNotifier {
 
   bool esInvitado = false; // Estado de usuario invitado o registrado
   final ImagePicker _picker = ImagePicker();
+
+  // Valida el formato de la imagen: no GIF, no documentos con extensión .jpeg/.png, no archivos corruptos
+  Future<bool> validarFormatoImagen(File file) async {
+    String extension = file.path.split('.').last.toLowerCase();
+    if (extension == 'gif') return false;
+    try {
+      final bytes = await file.readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      return decoded != null;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Elimina una imagen de la lista y actualiza la UI
   void eliminarImagen(int index) {
@@ -95,6 +109,7 @@ class LogicaFoto with ChangeNotifier {
 
     // Procesa cada imagen enviándola al API
     for (final image in _imagenesConUbicacion) {
+      if (!await validarFormatoImagen(image.imagen)) continue;
       try {
         final response = await ConexionApi().predictImage(image.imagen.path);
 
