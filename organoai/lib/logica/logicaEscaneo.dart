@@ -91,6 +91,44 @@ class LogicaEscaneo {
   static const String _uploadUrl =
       "https://api.imgbb.com/1/upload?key=$_apiKey";
 
+  /// Muestra un diálogo con las recomendaciones del escaneo.
+  ///
+  /// [context]: Contexto de la pantalla para mostrar el diálogo.
+  /// [tipo]: Tipo de enfermedad detectada.
+  /// [descripcion]: Descripción de la enfermedad.
+  /// [tratamiento]: Tratamiento recomendado.
+  void _showRecomendation(
+    BuildContext context,
+    String tipo,
+    String descripcion,
+    String tratamiento,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resultado del escaneo'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Enfermedad detectada: $tipo'),
+              const SizedBox(height: 8),
+              Text('Descripción: $descripcion'),
+              const SizedBox(height: 8),
+              Text('Tratamiento: $tratamiento'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Sube una imagen codificada en Base64 a ImgBB y devuelve la URL pública de la imagen.
   /// 
   /// [apiResponse]: Respuesta de la API que contiene la imagen en formato Base64 (como 'data:image/jpeg;base64,...').
@@ -250,30 +288,7 @@ class LogicaEscaneo {
       }
 
       // Muestra el resultado al usuario en un cuadro de diálogo
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Resultado del escaneo'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Enfermedad detectada: $tipo'),
-                const SizedBox(height: 8),
-                Text('Descripción: $descripcion'),
-                const SizedBox(height: 8),
-                Text('Tratamiento: $tratamiento'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        ),
-      );
+      _showRecomendation(context, tipo, descripcion, tratamiento);
 
       // Guarda el escaneo en Firestore con todas las variables relevantes
       await _scanService.guardarEscaneo(

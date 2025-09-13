@@ -84,9 +84,9 @@ class HistorialPage extends StatelessWidget {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: StreamBuilder<
+                      child: Builder<
                           Map<String, List<Map<String, dynamic>>>>(
-                        stream: viewModel.escaneosAgrupadosStream(),
+                        stream: viewModel.listarEscaneos(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
