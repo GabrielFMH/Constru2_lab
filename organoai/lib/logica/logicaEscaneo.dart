@@ -179,7 +179,28 @@ class LogicaEscaneo {
     if (imagenBase64 == null) return null;
     final String base64String = imagenBase64.split(',').last;
     return base64Decode(base64String);
-  }
+    }
+  
+    /// Obtiene la descripción y tratamiento de una enfermedad desde Firestore.
+    Future<Map<String, String>> _getTreatments(String tipo) async {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('enfermedad')
+          .where('nombre', isEqualTo: tipo)
+          .limit(1)
+          .get();
+      if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data();
+        return {
+          'descripcion': data['descripcion'] ?? 'No disponible',
+          'tratamiento': data['tratamiento'] ?? 'No disponible',
+        };
+      } else {
+        return {
+          'descripcion': 'No disponible',
+          'tratamiento': 'No disponible',
+        };
+      }
+    }
 
   /// Formatea la lista de enfermedades detectadas en un texto legible para el usuario.
   /// 
@@ -271,17 +292,9 @@ class LogicaEscaneo {
       // Busca información adicional en Firestore si la enfermedad no es "sana" ni "desconocida"
       if (tipo.toLowerCase() != 'no se detecta oregano' &&
           tipo.toLowerCase() != 'desconocida') {
-        final querySnapshot = await FirebaseFirestore.instance
-            .collection('enfermedad')
-            .where('nombre', isEqualTo: tipo)
-            .limit(1)
-            .get();
-        //Crear la funcion get theratments
-        if (querySnapshot.docs.isNotEmpty) {
-          final data = querySnapshot.docs.first.data();
-          descripcion = data['descripcion'] ?? descripcion;
-          tratamiento = data['tratamiento'] ?? tratamiento;
-        }
+        final treatments = await _getTreatments(tipo);
+        descripcion = treatments['descripcion']!;
+        tratamiento = treatments['tratamiento']!;
       } else if (tipo.toLowerCase() == 'no se detecta oregano') {
         descripcion = "No se detectó orégano en la imagen.";
         tratamiento = "No aplica.";

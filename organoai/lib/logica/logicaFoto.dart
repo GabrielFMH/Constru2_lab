@@ -73,10 +73,28 @@ class LogicaFoto with ChangeNotifier {
       notifyListeners();
     }
   }
-  // Método privado para escanear imágenes y obtener resultados
-  Future<List<Map<String, dynamic>>> _scanImages(List<ImagenConUbicacion> images) async {
+
+  // Escanea todas las imágenes guardadas en memoria
+  Future<void> scanImages(BuildContext context) async {
+    if (_imagenesConUbicacion.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No hay imágenes para escanear")),
+      );
+      return;
+    }
+
+    // Notifica al usuario que comenzó el escaneo
+    final notiService = NotificacionesService.instance;
+    await notiService.showNotification(
+      title: 'Escaneo iniciado',
+      body: 'Procesando imágenes...',
+    );
+
+    final logicaEscaneo = LogicaEscaneo();
     final List<Map<String, dynamic>> resultados = [];
-    for (final image in images) {
+
+    // Procesa cada imagen enviándola al API
+    for (final image in _imagenesConUbicacion) {
       try {
         final response = await ConexionApi().predictImage(image.imagen.path);
 
@@ -95,33 +113,12 @@ class LogicaFoto with ChangeNotifier {
         });
       }
     }
-    return resultados;
-  }
-
-  // Escanea todas las imágenes guardadas en memoria
-  Future<void> scanImages(BuildContext context) async {
-    if (_imagenesConUbicacion.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No hay imágenes para escanear")),
-      );
-      return;
-    }
-
-    // Notifica al usuario que comenzó el escaneo
-    final notiService = NotificacionesService.instance;
-    await notiService.showNotification(
-      title: 'Escaneo iniciado',
-      body: 'Procesando imágenes...',
-    );
-
-    final List<Map<String, dynamic>> resultados = await _scanImages(_imagenesConUbicacion);
 
     // Notifica que el escaneo terminó
     await notiService.showNotification(
       title: 'Escaneo completo',
       body: 'Se analizaron todas las imágenes.',
     );
-  final logicaEscaneo = LogicaEscaneo();
 
     // Muestra los resultados en la siguiente pantalla
     Navigator.push(
